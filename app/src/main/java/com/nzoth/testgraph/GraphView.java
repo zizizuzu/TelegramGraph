@@ -17,21 +17,23 @@ import java.util.Date;
 import java.util.Locale;
 
 public class GraphView extends View {
-    private static final int TABLE_HORIZONTAL_LINE_COUNT = 6;
+    private static final int TABLE_LINE_COUNT = 6;
     private static final int TABLE_TEXT_PADDING = 20;
     private static final int TABLE_TEXT_SIZE = 30;
 
-    private static final int DATE_BLOCK_HEIGHT = 200;
+    private static final int SCROLL_BLOCK_HEIGHT = 100;
 
-    private GraphItem graphItem;
+    private int lineWidth = 100;
 
     private int screenWidth;
     private int screenHeight;
-
-    private int lineWeight = 100;
+    private int graphBlockHeight;
 
     private Paint linePaint;
     private Paint tablePaint;
+    private Paint scrollPaint;
+
+    private GraphItem graphItem;
 
     private Direction mCurrentScrollDirection = Direction.NONE;
     private GestureDetectorCompat gestureDetector;
@@ -56,6 +58,7 @@ public class GraphView extends View {
 
         initLinePaint();
         initTablePaint();
+        initScrollPaint();
     }
 
 
@@ -64,6 +67,7 @@ public class GraphView extends View {
         super.onLayout(changed, left, top, right, bottom);
         screenWidth = getWidth();
         screenHeight = getHeight();
+        graphBlockHeight = screenHeight - (SCROLL_BLOCK_HEIGHT + TABLE_TEXT_SIZE + TABLE_TEXT_PADDING * 2);
     }
 
     private final GestureDetector.SimpleOnGestureListener gestureListener = new GestureDetector.SimpleOnGestureListener() {
@@ -139,14 +143,14 @@ public class GraphView extends View {
 
         drawTable(canvas);
         drawLines(canvas);
+        drawScrollBlock(canvas);
     }
 
     private void drawTable(Canvas canvas) {
-        float height = screenHeight - DATE_BLOCK_HEIGHT;
-        float rowHeight = height / TABLE_HORIZONTAL_LINE_COUNT;
+        float rowHeight = graphBlockHeight / (float) TABLE_LINE_COUNT;
 
-        float[] table = new float[TABLE_HORIZONTAL_LINE_COUNT * 4];
-        for (int i = 0; i < TABLE_HORIZONTAL_LINE_COUNT; i++) {
+        float[] table = new float[TABLE_LINE_COUNT * 4];
+        for (int i = 0; i < TABLE_LINE_COUNT; i++) {
             int position = i * 4;
             float y = (i + 1) * rowHeight;
             table[position] = 0;
@@ -160,16 +164,15 @@ public class GraphView extends View {
     }
 
     private void drawTableYText(Canvas canvas, int maxYPoints) {
-        float height = screenHeight - DATE_BLOCK_HEIGHT;
-        float rowHeight = height / TABLE_HORIZONTAL_LINE_COUNT;
-        int partOfPoints = maxYPoints / TABLE_HORIZONTAL_LINE_COUNT;
+        float rowHeight = graphBlockHeight / (float) TABLE_LINE_COUNT;
+        int partOfPoints = maxYPoints / TABLE_LINE_COUNT;
 
         tablePaint.setColor(Color.GRAY);
-        for (int i = 0; i < TABLE_HORIZONTAL_LINE_COUNT; i++) {
+        for (int i = 0; i < TABLE_LINE_COUNT; i++) {
             canvas.drawText(
                     FormatUtils.formatBigValue(i > 0 ? i * partOfPoints : 0),
                     TABLE_TEXT_PADDING,
-                    (height - i * rowHeight) - TABLE_TEXT_PADDING,
+                    (graphBlockHeight - i * rowHeight) - TABLE_TEXT_PADDING,
                     tablePaint
             );
         }
@@ -182,11 +185,11 @@ public class GraphView extends View {
             int endScreenPoint,
             int visibleDateValue
     ) {
-        float height = screenHeight - DATE_BLOCK_HEIGHT + TABLE_TEXT_SIZE + TABLE_TEXT_PADDING;
+        float height = graphBlockHeight + TABLE_TEXT_SIZE + TABLE_TEXT_PADDING;
         int startPosition = startScreenPoint - startScreenPoint % visibleDateValue;
         for (int i = 0; i < endScreenPoint - startPosition; i += visibleDateValue) {
             int rootArrayPosition = i + startPosition;
-            float positionX = scrollX - (i > 0 ? lineWeight * rootArrayPosition : 0);
+            float positionX = scrollX - (i > 0 ? lineWidth * rootArrayPosition : 0);
 
             Date date = new Date(graphItem.getDateList()[rootArrayPosition]);
             String text = dateFormat.format(date);
@@ -199,8 +202,8 @@ public class GraphView extends View {
         float scrollX = mCurrentOrigin.x + screenWidth;
         int listLength = graphItem.getDateList().length;
 
-        int startScreenPoint = getPreviousPosition((int) Math.ceil(mCurrentOrigin.x / lineWeight));
-        int endScreenPointTerm = (int) Math.ceil(scrollX / lineWeight) + 1;
+        int startScreenPoint = getPreviousPosition((int) Math.ceil(mCurrentOrigin.x / lineWidth));
+        int endScreenPointTerm = (int) Math.ceil(scrollX / lineWidth) + 1;
         int endScreenPoint = listLength > endScreenPointTerm ? endScreenPointTerm : listLength;
         int toArrayCount = endScreenPoint - startScreenPoint;
 
@@ -232,6 +235,37 @@ public class GraphView extends View {
         );
     }
 
+    private void drawScrollBlock(Canvas canvas) {
+        int scrollBlockY = screenHeight - SCROLL_BLOCK_HEIGHT;
+
+        //draw left and right lines
+        int leftRightBorderWidth = 6;
+        //линии для увеличения области обзора графика, в дальнейшем должны быть динамическими
+        int rightLineX = screenWidth - leftRightBorderWidth / 2;
+        int leftLineX = rightLineX - 100;
+
+        scrollPaint.setAlpha(30);
+        scrollPaint.setStrokeWidth(leftRightBorderWidth);
+        canvas.drawLine(rightLineX, scrollBlockY, rightLineX, screenHeight, scrollPaint);
+        canvas.drawLine(leftLineX, scrollBlockY, leftLineX, screenHeight, scrollPaint);
+
+        //draw top and bottom lines
+        int topBottomBorderWidth = 2;
+        int line2BottomY = screenHeight - topBottomBorderWidth / 2;
+        int line2TopY = line2BottomY - SCROLL_BLOCK_HEIGHT + topBottomBorderWidth;
+        int line2StartX = rightLineX - leftRightBorderWidth / 2;
+        int line2EndX = leftLineX + leftRightBorderWidth / 2;
+        scrollPaint.setStrokeWidth(topBottomBorderWidth);
+        canvas.drawLine(line2StartX, line2TopY, line2EndX, line2TopY, scrollPaint);
+        canvas.drawLine(line2StartX, line2BottomY, line2EndX, line2BottomY, scrollPaint);
+
+        //on graph fill color
+        int scrollBackgroundY = screenHeight - SCROLL_BLOCK_HEIGHT / 2;
+        scrollPaint.setAlpha(10);
+        scrollPaint.setStrokeWidth(SCROLL_BLOCK_HEIGHT);
+        canvas.drawLine(0, scrollBackgroundY, leftLineX - leftRightBorderWidth / 2, scrollBackgroundY, scrollPaint);
+    }
+
     private float[] getChainArrayFromArray(
             long[] fromArray,
             int toArrayCount,
@@ -239,8 +273,7 @@ public class GraphView extends View {
             float scrollX,
             float maxYPoints
     ) {
-        float height = screenHeight - DATE_BLOCK_HEIGHT;
-        float itemY = height / maxYPoints;
+        float itemY = graphBlockHeight / maxYPoints;
         float[] toArray = new float[toArrayCount * 4];
 
         for (int i = 0; i < toArrayCount; i++) {
@@ -248,41 +281,13 @@ public class GraphView extends View {
             int rootArrayPosition = i + startScreenPoint;
             int previousPosition = getPreviousPosition(rootArrayPosition);
 
-            toArray[toArrayPosition] = scrollX - (previousPosition > 0 ? lineWeight * previousPosition : 0);
-            toArray[toArrayPosition + 1] = height - (fromArray[previousPosition] * itemY);
-            toArray[toArrayPosition + 2] = scrollX - (i > 0 ? lineWeight * rootArrayPosition : 0);
-            toArray[toArrayPosition + 3] = height - (fromArray[rootArrayPosition] * itemY);
+            toArray[toArrayPosition] = scrollX - (previousPosition > 0 ? lineWidth * previousPosition : 0);
+            toArray[toArrayPosition + 1] = graphBlockHeight - (fromArray[previousPosition] * itemY);
+            toArray[toArrayPosition + 2] = scrollX - (i > 0 ? lineWidth * rootArrayPosition : 0);
+            toArray[toArrayPosition + 3] = graphBlockHeight - (fromArray[rootArrayPosition] * itemY);
         }
         return toArray;
     }
-
-//     private void drawLines(Canvas canvas) {
-//        float scrollX = mCurrentOrigin.x + screenWidth;
-//        int listLength = graphItem.getDateList().length;
-//
-//        int startScreenPoint = getPreviousPosition((int) Math.ceil(mCurrentOrigin.x / lineWeight));
-//        int endScreenPointTerm = (int) Math.ceil(scrollX / lineWeight) + 1;
-//        int endScreenPoint = listLength > endScreenPointTerm ? endScreenPointTerm : listLength;
-//        int toArrayCount = endScreenPoint - startScreenPoint;
-//
-//        long[][] graphArray = graphItem.getGraphList();
-//
-//        if (toArrayCount > 0) {
-//            float maxYPoints = getMaxYHeight(graphArray, startScreenPoint, endScreenPoint);
-//
-//            for (int i = 0; i < graphArray.length; i++) {
-//                String title = graphItem.getGraphTitleList()[i];
-//                int color = Color.parseColor(graphItem.getGraphColorList()[i]);
-//
-//                float[] toArray = getChainArrayFromArray(graphArray[i], toArrayCount, startScreenPoint, scrollX, maxYPoints);
-//
-//                linePaint.setColor(color);
-//                canvas.drawLines(toArray, linePaint);
-//            }
-//
-//            drawTableYText(canvas, (int) maxYPoints);
-//        }
-//    }
 
     private float getMaxYHeight(long[][] graphArray, int startScreenPoint, int endScreenPoint) {
         float maxY = 0;
@@ -294,13 +299,13 @@ public class GraphView extends View {
             int arrayLength = array.length;
             float startY1 = array[arrayLength - 1 > startScreenPoint ? startScreenPoint + 1 : arrayLength - 1];
             float startY2 = array[startScreenPoint];
-            float startX3 = 1 - (mCurrentOrigin.x / lineWeight - startScreenPoint);
+            float startX3 = 1 - (mCurrentOrigin.x / lineWidth - startScreenPoint);
             float startPosition = getPointOnLine(startY1, startY2, startX3);
             maxY = maxY < startPosition ? startPosition : maxY;
 
             float endY1 = array[endScreenPoint >= 2 ? endScreenPoint - 2 : endScreenPoint];
             float endY2 = array[endScreenPoint >= 1 ? endScreenPoint - 1 : endScreenPoint];
-            float endX3 = scrollX / lineWeight - (float) Math.floor(scrollX / lineWeight);
+            float endX3 = scrollX / lineWidth - (float) Math.floor(scrollX / lineWidth);
             float endPosition = getPointOnLine(endY1, endY2, endX3);
             maxY = maxY < endPosition ? endPosition : maxY;
 
@@ -318,30 +323,6 @@ public class GraphView extends View {
         float x2 = 1F;
         return (x3 - x1) * (y1 - y2) / (x1 - x2) + y1;
     }
-//
-//    private float[] getChainArrayFromArray(
-//            long[] fromArray,
-//            int toArrayCount,
-//            int startScreenPoint,
-//            float scrollX,
-//            float maxYPoints
-//    ) {
-//        float height = screenHeight - DATE_BLOCK_HEIGHT;
-//        float itemY = height / maxYPoints;
-//        float[] toArray = new float[toArrayCount * 4];
-//
-//        for (int i = 0; i < toArrayCount; i++) {
-//            int toArrayPosition = i * 4;
-//            int rootArrayPosition = i + startScreenPoint;
-//            int previousPosition = getPreviousPosition(rootArrayPosition);
-//
-//            toArray[toArrayPosition] = scrollX - (previousPosition > 0 ? lineWeight * previousPosition : 0);
-//            toArray[toArrayPosition + 1] = height - (fromArray[previousPosition] * itemY);
-//            toArray[toArrayPosition + 2] = scrollX - (i > 0 ? lineWeight * rootArrayPosition : 0);
-//            toArray[toArrayPosition + 3] = height - (fromArray[rootArrayPosition] * itemY);
-//        }
-//        return toArray;
-//    }
 
     private int getPreviousPosition(int position) {
         return position <= 0 ? 0 : position - 1;
@@ -360,5 +341,11 @@ public class GraphView extends View {
         tablePaint.setStyle(Paint.Style.FILL_AND_STROKE);
         tablePaint.setStrokeWidth(1);
         tablePaint.setTextSize(TABLE_TEXT_SIZE);
+    }
+
+    private void initScrollPaint() {
+        scrollPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        scrollPaint.setStyle(Paint.Style.STROKE);
+        scrollPaint.setColor(Color.BLUE);
     }
 }
