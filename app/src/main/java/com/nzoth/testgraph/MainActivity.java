@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
 
-            GraphView graphView = new GraphView(this, itemList.get(3));
+            GraphView graphView = new GraphView(this, itemList.get(0));
             graphView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             setContentView(graphView);
         } catch (IOException e) {
