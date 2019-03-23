@@ -267,14 +267,14 @@ public class GraphView extends View {
         float height = graphBlockHeight + graphBlockTextSize + graphBlockTextPadding;
         float startPosition = startScreenPoint - startScreenPoint % visibleDateValue;
 
-        for (int i = 1; i < endScreenPoint - startPosition; i += visibleDateValue) {
+        for (int i = 0; i < endScreenPoint - startPosition; i += visibleDateValue) {
             float rootArrayPosition = i + startPosition;
             float positionX = scrollX - (i > 0 ? graphBlockLineWeight * rootArrayPosition : 0);
 
             Date date = new Date(graphItem.getDateList()[(int) rootArrayPosition]);
             String text = DATE_FORMAT.format(date);
 
-            float x = positionX - tablePaint.measureText(text) / 2;
+            float x = positionX - tablePaint.measureText(text);
             canvas.drawText(text, x, height, tablePaint);
         }
     }
